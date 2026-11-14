@@ -1,8 +1,11 @@
 
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
+const { compileGraph } = require("./streamCompiler");
 
 let io;
+
+const activePipelines = new Map();
 
 const initializeTelemetrySocket = (httpServer) => {
   io = new Server(httpServer, {
@@ -15,6 +18,7 @@ const initializeTelemetrySocket = (httpServer) => {
   io.on("connection", (socket) => {
     console.log(`IoT client connected: ${socket.id}`);
 
+    // Subscribe to a device's telemetry room
     socket.on("telemetry:subscribe", (deviceId) => {
       if (typeof deviceId !== "string" || !deviceId.trim()) {
         socket.emit("telemetry:error", {
@@ -23,15 +27,118 @@ const initializeTelemetrySocket = (httpServer) => {
         return;
       }
 
-      const room = `device:${deviceId.trim()}`;
-      socket.join(room);
+      const cleanId = deviceId.trim();
+
+      socket.join(`device:${cleanId}`);
 
       socket.emit("telemetry:subscribed", {
         success: true,
-        deviceId: deviceId.trim(),
+        deviceId: cleanId,
       });
     });
 
+    // Compile and activate a graph for a device
+    socket.on("graph:compile", (graph) => {
+      try {
+        const pipeline = compileGraph(graph);
+
+        const sensor = graph.nodes.find(
+          (node) => node.type === "sensor"
+        );
+
+        const deviceId = sensor.data.deviceId.trim();
+
+        // Replace an existing pipeline for this device
+        const previous = activePipelines.get(deviceId);
+
+        if (previous) {
+          previous.subscription.unsubscribe();
+          previous.pipeline.close();
+        }
+
+        const subscription = pipeline.output$.subscribe({
+          next: (result) => {
+            io.to(`device:${deviceId}`).emit(
+              "telemetry:processed",
+              result
+            );
+
+            result.alerts.forEach((alert) => {
+              io.to(`device:${deviceId}`).emit(
+                "telemetry:alert",
+                alert
+              );
+            });
+          },
+
+          error: (error) => {
+            console.error(
+              "Stream pipeline error:",
+              error.message
+            );
+
+            io.to(`device:${deviceId}`).emit(
+              "pipeline:error",
+              { message: error.message }
+            );
+
+            const active = activePipelines.get(deviceId);
+
+            if (active?.pipeline === pipeline) {
+              activePipelines.delete(deviceId);
+            }
+
+            pipeline.close();
+          },
+        });
+
+        activePipelines.set(deviceId, {
+          pipeline,
+          subscription,
+          ownerSocketId: socket.id,
+        });
+
+        socket.join(`device:${deviceId}`);
+
+        socket.emit("graph:compiled", {
+          success: true,
+          deviceId,
+          message: "RxJS telemetry pipeline activated",
+        });
+
+        console.log(
+          `RxJS pipeline activated for ${deviceId}`
+        );
+      } catch (error) {
+        socket.emit("graph:error", {
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
+    // Stop a device's active graph
+    socket.on("graph:stop", (deviceId) => {
+      const active = activePipelines.get(deviceId);
+
+      if (!active || active.ownerSocketId !== socket.id) {
+        socket.emit("graph:error", {
+          message: "No owned active pipeline found for this device",
+        });
+        return;
+      }
+
+      active.subscription.unsubscribe();
+      active.pipeline.close();
+      activePipelines.delete(deviceId);
+
+      socket.emit("graph:stopped", {
+        success: true,
+        deviceId,
+      });
+    });
+
+    // Receive, validate and store live telemetry
     socket.on("telemetry:reading", async (reading) => {
       try {
         if (
@@ -67,6 +174,7 @@ const initializeTelemetrySocket = (httpServer) => {
           timestamp: reading.timestamp
             ? new Date(reading.timestamp)
             : new Date(),
+
           metadata: {
             deviceId: reading.deviceId.trim(),
             location:
@@ -75,6 +183,7 @@ const initializeTelemetrySocket = (httpServer) => {
                 ? reading.location.trim()
                 : "unknown",
           },
+
           temperature: reading.temperature,
           voltage: reading.voltage,
           current: reading.current,
@@ -98,14 +207,30 @@ const initializeTelemetrySocket = (httpServer) => {
           ...document,
         };
 
-        io.to(`device:${document.metadata.deviceId}`).emit(
+        const deviceId = document.metadata.deviceId;
+
+        // Broadcast original telemetry
+        io.to(`device:${deviceId}`).emit(
           "telemetry:update",
           response
         );
 
         socket.emit("telemetry:stored", response);
+
+        // Send the stored reading into the active RxJS pipeline
+        const active = activePipelines.get(deviceId);
+
+        if (active) {
+          active.pipeline.telemetryInput$.next({
+            ...document,
+            deviceId,
+          });
+        }
       } catch (error) {
-        console.error("WebSocket telemetry error:", error.message);
+        console.error(
+          "WebSocket telemetry error:",
+          error.message
+        );
 
         socket.emit("telemetry:error", {
           message: "Unable to store telemetry reading",
@@ -113,8 +238,21 @@ const initializeTelemetrySocket = (httpServer) => {
       }
     });
 
-    socket.on("disconnect", (reason) => {
-      console.log(`IoT client disconnected: ${socket.id}`, reason);
+    socket.on("disconnect", () => {
+      // Stop pipelines owned by this disconnected client
+      for (const [deviceId, active] of activePipelines) {
+        if (active.ownerSocketId === socket.id) {
+          active.subscription.unsubscribe();
+          active.pipeline.close();
+          activePipelines.delete(deviceId);
+
+          console.log(
+            `Stopped pipeline for ${deviceId}`
+          );
+        }
+      }
+
+      console.log(`IoT client disconnected: ${socket.id}`);
     });
   });
 
@@ -124,4 +262,3 @@ const initializeTelemetrySocket = (httpServer) => {
 };
 
 module.exports = initializeTelemetrySocket;
-
