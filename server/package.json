@@ -1,0 +1,33 @@
+{
+  "name": "nexusflow-server",
+  "version": "1.0.0",
+  "description": "NexusFlow Backend - High-speed IoT telemetry ingestion and reactive rule engine",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "iot",
+    "telemetry",
+    "timeseries",
+    "mongodb",
+    "express",
+    "rxjs",
+    "rule-engine"
+  ],
+  "author": "NexusFlow Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
