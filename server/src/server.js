@@ -56,9 +56,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Module placeholder routes - populated in upcoming Week 1 days
-// Member 1: app.use("/api/telemetry", telemetryRoutes);
-// Member 2: app.use("/api/graphs", graphRoutes);
+// Ingestion Module Routes (Member 1)
+const telemetryRoutes = require("./ingestion/telemetry.routes");
+app.use("/api/telemetry", telemetryRoutes);
+
+// Compiler Module Routes placeholder (Member 2)
+// app.use("/api/graphs", graphRoutes);
 
 // 404 Handler
 app.use((req, res) => {
