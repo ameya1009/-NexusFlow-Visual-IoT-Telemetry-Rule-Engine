@@ -131,6 +131,8 @@ describe("Week 1 Day 2 — Telemetry Ingestion & Time-Series Tests", () => {
       });
 
       assert.strictEqual(res.status, 201);
+      assert.ok(res.headers.get("x-ratelimit-limit") !== null, "Rate limit header should be present");
+      assert.ok(res.headers.get("x-ratelimit-remaining") !== null, "Rate limit remaining header should be present");
       const json = await res.json();
       assert.strictEqual(json.success, true);
       assert.strictEqual(json.count, 1);
@@ -180,6 +182,59 @@ describe("Week 1 Day 2 — Telemetry Ingestion & Time-Series Tests", () => {
       const json = await res.json();
       assert.strictEqual(json.success, false);
       assert.strictEqual(json.error, "Validation failed");
+    });
+  });
+
+  describe("4. Ingestion Rate Limiter & Database Guard Tests", () => {
+    test("Rate limiter returns 429 when max requests are exceeded", () => {
+      const createRateLimiter = require("../src/ingestion/middleware/rateLimiter");
+      const limiter = createRateLimiter({ windowMs: 10000, max: 2 });
+
+      const req = { ip: "192.168.1.100", headers: {}, socket: {} };
+      let statusCalled = null;
+      let jsonCalled = null;
+      const res = {
+        setHeader: () => {},
+        status: (code) => {
+          statusCalled = code;
+          return {
+            json: (payload) => {
+              jsonCalled = payload;
+            },
+          };
+        },
+      };
+
+      // 1st request - pass
+      limiter(req, res, () => {});
+      // 2nd request - pass
+      limiter(req, res, () => {});
+      // 3rd request - exceed limit (max: 2)
+      limiter(req, res, () => {});
+
+      assert.strictEqual(statusCalled, 429);
+      assert.strictEqual(jsonCalled.error, "Rate limit exceeded");
+    });
+
+    test("connectDB throws in production when MONGODB_URI is not defined", async () => {
+      const connectDB = require("../src/config/database");
+      const prevEnv = process.env.NODE_ENV;
+      const prevUri = process.env.MONGODB_URI;
+
+      try {
+        process.env.NODE_ENV = "production";
+        delete process.env.MONGODB_URI;
+
+        await assert.rejects(
+          async () => {
+            await connectDB();
+          },
+          /MONGODB_URI must be explicitly configured in production/
+        );
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+        if (prevUri) process.env.MONGODB_URI = prevUri;
+      }
     });
   });
 });

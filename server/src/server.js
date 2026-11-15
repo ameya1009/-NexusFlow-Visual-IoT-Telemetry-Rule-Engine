@@ -93,8 +93,25 @@ const start = async () => {
   });
 };
 
+const gracefulShutdown = async (signal) => {
+  console.log(`\n[NexusFlow Server] Received ${signal}. Closing HTTP and DB connections...`);
+  server.close(async () => {
+    try {
+      await mongoose.connection.close(false);
+      console.log("[NexusFlow Server] Database connection closed cleanly.");
+      process.exit(0);
+    } catch (err) {
+      console.error("[NexusFlow Server] Error closing database:", err);
+      process.exit(1);
+    }
+  });
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 if (require.main === module) {
   start();
 }
 
-module.exports = { app, server };
+module.exports = { app, server, gracefulShutdown };

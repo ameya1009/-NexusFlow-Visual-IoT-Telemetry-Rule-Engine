@@ -5,6 +5,12 @@ const mongoose = require("mongoose");
  * NexusFlow requires MongoDB 5.0+ for Time-Series collections.
  */
 const connectDB = async () => {
+  if (process.env.NODE_ENV === "production" && !process.env.MONGODB_URI) {
+    const errorMsg = "[Database Configuration] Fatal: MONGODB_URI must be explicitly configured in production environment.";
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
   const mongoURI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/nexusflow";
 
   try {
