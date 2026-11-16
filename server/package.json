@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test test/**/*.test.js",
+    "mock-sensor": "node src/ingestion/scripts/mockSensor.js"
   },
   "keywords": [
     "iot",
