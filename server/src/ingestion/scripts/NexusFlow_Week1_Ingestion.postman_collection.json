@@ -1,0 +1,104 @@
+{
+  "info": {
+    "_postman_id": "a9018c12-3f81-49b8-bc79-nexusflow-week1",
+    "name": "NexusFlow IoT Telemetry - Week 1 Ingestion Collection",
+    "description": "Postman demo collection for Week 1 Deliverable: 1,000 readings insertion and telemetry ingestion verification.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. System Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Verifies server and database connectivity status."
+      }
+    },
+    {
+      "name": "2. Single Telemetry Ingestion (Contract 4.2)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timestamp\": \"2026-11-17T12:00:00.000Z\",\n  \"metadata\": {\n    \"sensorId\": \"turbine-7\",\n    \"site\": \"plant-A\"\n  },\n  \"temperature\": 82.4,\n  \"vibration\": 0.31\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        },
+        "description": "Ingests a single reading conforming to Section 4.2 of the project specification."
+      }
+    },
+    {
+      "name": "3. Batch Telemetry Ingestion",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"timestamp\": \"2026-11-17T12:00:01.000Z\",\n    \"metadata\": { \"sensorId\": \"turbine-1\", \"site\": \"plant-A\" },\n    \"temperature\": 72.1,\n    \"vibration\": 0.18\n  },\n  {\n    \"timestamp\": \"2026-11-17T12:00:02.000Z\",\n    \"metadata\": { \"sensorId\": \"turbine-7\", \"site\": \"plant-A\" },\n    \"temperature\": 84.5,\n    \"vibration\": 0.42\n  },\n  {\n    \"timestamp\": \"2026-11-17T12:00:03.000Z\",\n    \"metadata\": { \"sensorId\": \"turbine-2\", \"site\": \"plant-B\" },\n    \"temperature\": 68.9,\n    \"vibration\": 0.11\n  }\n]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        },
+        "description": "Ingests a batch array of sensor readings utilizing insertMany with ordered: false."
+      }
+    },
+    {
+      "name": "4. Query Latest Telemetry",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/latest?sensorId=turbine-7&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "latest"],
+          "query": [
+            { "key": "sensorId", "value": "turbine-7" },
+            { "key": "limit", "value": "10" }
+          ]
+        },
+        "description": "Fetches latest ingested readings sorted by timestamp descending."
+      }
+    },
+    {
+      "name": "5. Validation Guard Test (Reject Invalid Payload)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"temperature\": 75.0\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        },
+        "description": "Ensures malformed payload missing metadata.sensorId returns HTTP 400 Bad Request."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    }
+  ]
+}
