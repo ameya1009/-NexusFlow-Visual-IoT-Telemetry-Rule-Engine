@@ -1,6 +1,5 @@
-
-const { compileGraph } = require("./src/services/streamCompiler");
-
+const assert = require("assert");
+const { compileGraph } = require('./src/compiler/services/streamCompiler');
 const graph = {
   nodes: [
     {
@@ -37,15 +36,19 @@ const graph = {
 
 const pipeline = compileGraph(graph);
 
+const results = [];
+
 pipeline.output$.subscribe({
   next: result => {
+    results.push(result);
+
     console.log("Processed telemetry:");
     console.log(JSON.stringify(result, null, 2));
   },
   error: error => console.error("Pipeline error:", error.message)
 });
 
-[75, 85, 90].forEach(temperature => {
+[75, 85, 90, 100].forEach(temperature => {
   pipeline.telemetryInput$.next({
     deviceId: "TURBINE-001",
     temperature,
@@ -55,3 +58,31 @@ pipeline.output$.subscribe({
 });
 
 pipeline.close();
+
+// Automated test assertions
+assert.strictEqual(results.length, 4, "Should process 4 telemetry readings");
+assert.strictEqual(
+  results[0].results["average-1"].temperature,
+  75,
+  "First moving average should be 75"
+);
+
+assert.strictEqual(
+  results[1].results["average-1"].temperature,
+  80,
+  "Second moving average should be 80"
+);
+
+assert.ok(
+  Math.abs(results[2].results["average-1"].temperature - 83.33333333333333) < 0.001,
+  "Third moving average should be approximately 83.33"
+);
+assert.ok(
+  Math.abs(results[3].results["average-1"].temperature - 91.66666666666667) < 0.001,
+  "Fourth moving average should be approximately 91.67"
+);
+assert.strictEqual(results[0].alerts.length, 0, "First reading should not trigger alert");
+assert.strictEqual(results[1].alerts.length, 0, "Second reading should not trigger alert");
+assert.strictEqual(results[2].alerts.length, 1, "Third reading should trigger alert");
+
+console.log("\n✅ All Stream Compiler tests passed!");
