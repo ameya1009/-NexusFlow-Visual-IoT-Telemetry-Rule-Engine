@@ -60,8 +60,9 @@ app.get("/api/health", (req, res) => {
 const telemetryRoutes = require("./ingestion/telemetry.routes");
 app.use("/api/telemetry", telemetryRoutes);
 
-// Compiler Module Routes placeholder (Member 2)
-// app.use("/api/graphs", graphRoutes);
+// Compiler & Rule Engine Module Routes (Member 2)
+const graphRoutes = require("./compiler/routes/graph.routes");
+app.use("/api/graphs", graphRoutes);
 
 // 404 Handler
 app.use((req, res) => {
