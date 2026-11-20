@@ -1,8 +1,11 @@
 const assert = require("assert");
+
 const {
   compileGraph,
-  validateGraph
-} = require('./src/compiler/services/streamCompiler');const graph = {
+  validateGraph,
+  evaluateRule
+} = require("./src/compiler/services/streamCompiler");
+const graph = {
   nodes: [
     {
       id: "sensor-1",
@@ -160,6 +163,130 @@ assert.throws(
 );
 
 console.log("✅ Disconnected node test passed");
+// ==========================================
+// WEEK 2 DAY 3: RULE OPERATOR TESTS
+// ==========================================
+
+// Test all six supported rule operators
+const ruleOperatorTests = [
+  { operator: ">", actual: 90, expected: 80, result: true },
+  { operator: ">", actual: 70, expected: 80, result: false },
+
+  { operator: ">=", actual: 80, expected: 80, result: true },
+  { operator: ">=", actual: 70, expected: 80, result: false },
+
+  { operator: "<", actual: 70, expected: 80, result: true },
+  { operator: "<", actual: 90, expected: 80, result: false },
+
+  { operator: "<=", actual: 80, expected: 80, result: true },
+  { operator: "<=", actual: 90, expected: 80, result: false },
+
+  { operator: "==", actual: 80, expected: 80, result: true },
+  { operator: "==", actual: 90, expected: 80, result: false },
+
+  { operator: "!=", actual: 90, expected: 80, result: true },
+  { operator: "!=", actual: 80, expected: 80, result: false }
+];
+
+ruleOperatorTests.forEach((test, index) => {
+  const result = evaluateRule(
+    { temperature: test.actual },
+    {
+      field: "temperature",
+      operator: test.operator,
+      value: test.expected
+    }
+  );
+
+  assert.strictEqual(
+    result,
+    test.result,
+    `Rule operator test ${index + 1} failed: ${test.operator}`
+  );
+});
+
+console.log("✅ All 12 rule operator tests passed");
+
+// Test invalid telemetry values
+assert.strictEqual(
+  evaluateRule(
+    { temperature: "hot" },
+    { field: "temperature", operator: ">", value: 80 }
+  ),
+  false,
+  "Should reject non-numeric telemetry values"
+);
+
+assert.strictEqual(
+  evaluateRule(
+    { temperature: Infinity },
+    { field: "temperature", operator: ">", value: 80 }
+  ),
+  false,
+  "Should reject infinite telemetry values"
+);
+
+console.log("✅ Invalid telemetry value tests passed");
+// ==========================================
+// WEEK 2 DAY 3: ADDITIONAL GRAPH VALIDATION
+// ==========================================
+
+// Test duplicate node IDs
+const duplicateNodeGraph = {
+  nodes: [
+    {
+      id: "sensor-1",
+      type: "sensor",
+      data: { deviceId: "TURBINE-001" }
+    },
+    {
+      id: "sensor-1",
+      type: "sensor",
+      data: { deviceId: "TURBINE-002" }
+    }
+  ],
+  edges: []
+};
+
+assert.throws(
+  () => validateGraph(duplicateNodeGraph),
+  /duplicate/i,
+  "Should reject duplicate node IDs"
+);
+
+console.log("✅ Duplicate node ID test passed");
+
+// Test missing node ID
+const missingNodeIdGraph = {
+  nodes: [
+    { type: "sensor", deviceId: "TURBINE-001" }
+  ],
+  edges: []
+};
+
+assert.throws(
+  () => validateGraph(missingNodeIdGraph),
+  /id/i,
+  "Should reject nodes without an ID"
+);
+
+console.log("✅ Missing node ID test passed");
+
+// Test missing node type
+const missingNodeTypeGraph = {
+  nodes: [
+    { id: "sensor-1", deviceId: "TURBINE-001" }
+  ],
+  edges: []
+};
+
+assert.throws(
+  () => validateGraph(missingNodeTypeGraph),
+  /type/i,
+  "Should reject nodes without a type"
+);
+
+console.log("✅ Missing node type test passed");
 const pipeline = compileGraph(graph);
 
 const results = [];
