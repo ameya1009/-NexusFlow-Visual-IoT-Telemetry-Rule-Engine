@@ -16,9 +16,9 @@ const initialNodes = [
   { 
     id: '1', 
     type: 'input', 
-    data: { label: '🌐 Source: sensor.scalar', type: 'source.sensor', sensorId: 'SN-001', metric: 'temperature' }, 
+    data: { label: '🌐 Source: sensor.scalar\n(ID: SN-001)', type: 'source.sensor', sensorId: 'SN-001', metric: 'temperature' }, 
     position: { x: 250, y: 100 },
-    style: { background: '#2d2d2d', color: '#fff', border: '1px solid #4f46e5', borderRadius: '8px', padding: '10px' }
+    style: { background: '#2d2d2d', color: '#fff', border: '1px solid #4f46e5', borderRadius: '8px', padding: '12px', fontSize: '13px', width: '190px', whiteSpace: 'pre-line' }
   },
 ];
 
@@ -30,7 +30,14 @@ function FlowCanvasContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [exportedJson, setExportedJson] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  const showStatus = (text, isError = false) => {
+    setStatusMessage({ text, isError });
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
@@ -42,6 +49,34 @@ function FlowCanvasContent() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
+  const getNodeStyle = (nodeType) => {
+    let borderColor = '#4f46e5';
+    if (nodeType === 'filter.movingAverage') borderColor = '#06b6d4';
+    if (nodeType === 'action.sms') borderColor = '#10b981';
+
+    return {
+      background: '#2d2d2d',
+      color: '#fff',
+      border: `1px solid ${borderColor}`,
+      borderRadius: '8px',
+      padding: '12px',
+      fontSize: '13px',
+      width: '190px',
+      whiteSpace: 'pre-line'
+    };
+  };
+
+  const generateLabel = (data) => {
+    if (data.type === 'source.sensor') {
+      return `🌐 Source: ${data.type}\n(ID: ${data.sensorId || ''})`;
+    } else if (data.type === 'filter.movingAverage') {
+      return `🔍 Filter: ${data.type}\n(Window: ${data.windowSize || ''})`;
+    } else if (data.type === 'action.sms') {
+      return `⚡ Action: ${data.type}\n(Threshold: ${data.threshold || ''})`;
+    }
+    return 'Node';
+  };
+
   const onDrop = useCallback(
     (event) => {
       event.preventDefault();
@@ -52,22 +87,9 @@ function FlowCanvasContent() {
       if (!type) return;
 
       let nodeConfig = { type: 'source.sensor', sensorId: 'SN-001', metric: 'temperature' };
-      let labelText = 'Node';
-      let borderColor = '#4f46e5';
-
       if (rawJsonData) {
         try {
           nodeConfig = JSON.parse(rawJsonData);
-          if (nodeConfig.type === 'source.sensor') {
-            labelText = `🌐 Source: ${nodeConfig.type}\n(ID: ${nodeConfig.sensorId})`;
-            borderColor = '#4f46e5';
-          } else if (nodeConfig.type === 'filter.movingAverage') {
-            labelText = `🔍 Filter: ${nodeConfig.type}\n(Window: ${nodeConfig.windowSize})`;
-            borderColor = '#06b6d4';
-          } else if (nodeConfig.type === 'action.sms') {
-            labelText = `⚡ Action: ${nodeConfig.type}\n(Threshold: ${nodeConfig.threshold})`;
-            borderColor = '#10b981';
-          }
         } catch (e) {
           console.error("Error parsing dropped node data", e);
         }
@@ -81,18 +103,9 @@ function FlowCanvasContent() {
       const newNode = {
         id: getId(),
         type: 'default',
-        data: { label: labelText, ...nodeConfig },
+        data: { label: generateLabel(nodeConfig), ...nodeConfig },
         position,
-        style: { 
-          background: '#2d2d2d', 
-          color: '#fff', 
-          border: `1px solid ${borderColor}`, 
-          borderRadius: '8px', 
-          padding: '12px',
-          fontSize: '13px',
-          width: '190px',
-          whiteSpace: 'pre-line'
-        },
+        style: getNodeStyle(nodeConfig.type),
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -104,11 +117,10 @@ function FlowCanvasContent() {
     setSelectedNode(node);
   }, []);
 
-  const onpaneClick = useCallback(() => {
+  const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
 
-  // Update node properties from Settings Panel
   const handlePropertyChange = (key, value) => {
     if (!selectedNode) return;
 
@@ -116,17 +128,7 @@ function FlowCanvasContent() {
       nds.map((node) => {
         if (node.id === selectedNode.id) {
           const updatedData = { ...node.data, [key]: value };
-          
-          // Re-generate label based on updated properties
-          let newLabel = node.data.label;
-          if (updatedData.type === 'source.sensor') {
-            newLabel = `🌐 Source: ${updatedData.type}\n(ID: ${updatedData.sensorId || ''})`;
-          } else if (updatedData.type === 'filter.movingAverage') {
-            newLabel = `🔍 Filter: ${updatedData.type}\n(Window: ${updatedData.windowSize || ''})`;
-          } else if (updatedData.type === 'action.sms') {
-            newLabel = `⚡ Action: ${updatedData.type}\n(Threshold: ${updatedData.threshold || ''})`;
-          }
-          updatedData.label = newLabel;
+          updatedData.label = generateLabel(updatedData);
 
           const updatedNode = { ...node, data: updatedData };
           setSelectedNode(updatedNode);
@@ -137,8 +139,188 @@ function FlowCanvasContent() {
     );
   };
 
+  // Client-Side Validation (No unconnected actions, no cycles/loops)
+  const validateGraph = () => {
+    if (nodes.length === 0) {
+      return { valid: false, error: 'Canvas is empty. Add at least one node.' };
+    }
+
+    // 1. Check for unconnected Action nodes
+    const actionNodes = nodes.filter((n) => n.data.type === 'action.sms');
+    for (const action of actionNodes) {
+      const hasIncomingEdge = edges.some((e) => e.target === action.id);
+      if (!hasIncomingEdge) {
+        return { 
+          valid: false, 
+          error: `Validation Failed: Action node (${action.id}) must have an incoming connection.` 
+        };
+      }
+    }
+
+    // 2. Check for cycles / loops using DFS
+    const adjList = {};
+    nodes.forEach((n) => (adjList[n.id] = []));
+    edges.forEach((e) => {
+      if (adjList[e.source]) adjList[e.source].push(e.target);
+    });
+
+    const visited = new Set();
+    const recStack = new Set();
+
+    const hasCycle = (nodeId) => {
+      if (!visited.has(nodeId)) {
+        visited.add(nodeId);
+        recStack.add(nodeId);
+
+        for (const neighbor of adjList[nodeId] || []) {
+          if (!visited.has(neighbor) && hasCycle(neighbor)) return true;
+          if (recStack.has(neighbor)) return true;
+        }
+      }
+      recStack.delete(nodeId);
+      return false;
+    };
+
+    for (const node of nodes) {
+      if (hasCycle(node.id)) {
+        return { valid: false, error: 'Validation Failed: Graph contains an infinite loop (cycle detected).' };
+      }
+    }
+
+    return { valid: true };
+  };
+
+  // Serialize React Flow state into clean Backend JSON Contract
+  const serializeToContractJson = () => {
+    const cleanNodes = nodes.map((node) => {
+      const { label, type, ...configParams } = node.data;
+      return {
+        id: node.id,
+        type: type,
+        data: configParams,
+        position: node.position
+      };
+    });
+
+    const cleanEdges = edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target
+    }));
+
+    return {
+      nodes: cleanNodes,
+      edges: cleanEdges
+    };
+  };
+
+  const handleExportJson = () => {
+    const validation = validateGraph();
+    if (!validation.valid) {
+      showStatus(validation.error, true);
+      return;
+    }
+
+    const contractPayload = serializeToContractJson();
+    setExportedJson(JSON.stringify(contractPayload, null, 2));
+    showStatus('Graph validated and serialized to contract JSON!');
+  };
+
+  const handleSaveGraph = () => {
+    const validation = validateGraph();
+    if (!validation.valid) {
+      showStatus(validation.error, true);
+      return;
+    }
+
+    const contractPayload = serializeToContractJson();
+    localStorage.setItem('nexusflow_saved_graph', JSON.stringify(contractPayload));
+    showStatus('Graph saved successfully!');
+  };
+
+  const handleLoadGraph = () => {
+    const saved = localStorage.getItem('nexusflow_saved_graph');
+    if (!saved) {
+      showStatus('No saved graph found in storage.', true);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+      const restoredNodes = parsed.nodes.map((n) => {
+        const fullData = { type: n.type, ...n.data };
+        fullData.label = generateLabel(fullData);
+        return {
+          id: n.id,
+          type: n.type === 'source.sensor' ? 'input' : 'default',
+          data: fullData,
+          position: n.position || { x: 200, y: 200 },
+          style: getNodeStyle(n.type)
+        };
+      });
+
+      setNodes(restoredNodes);
+      setEdges(parsed.edges || []);
+      setSelectedNode(null);
+      showStatus('Saved graph loaded onto canvas!');
+    } catch (e) {
+      showStatus('Failed to deserialize saved graph.', true);
+    }
+  };
+
   return (
     <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%', display: 'flex', position: 'relative' }}>
+      
+      {/* Top Action Toolbar */}
+      <div style={{
+        position: 'absolute',
+        top: '15px',
+        left: '20px',
+        zIndex: 10,
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'center'
+      }}>
+        <button 
+          onClick={handleSaveGraph}
+          style={{ background: '#2d2d2d', color: '#fff', border: '1px solid #444', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+        >
+          💾 Save Graph
+        </button>
+        <button 
+          onClick={handleLoadGraph}
+          style={{ background: '#2d2d2d', color: '#fff', border: '1px solid #444', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+        >
+          📂 Load Saved
+        </button>
+        <button 
+          onClick={handleExportJson}
+          style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
+        >
+          🚀 Validate & Export JSON
+        </button>
+      </div>
+
+      {/* Status Toast Notification */}
+      {statusMessage && (
+        <div style={{
+          position: 'absolute',
+          top: '60px',
+          left: '20px',
+          zIndex: 20,
+          background: statusMessage.isError ? '#7f1d1d' : '#064e3b',
+          color: '#fff',
+          border: `1px solid ${statusMessage.isError ? '#ef4444' : '#10b981'}`,
+          padding: '10px 16px',
+          borderRadius: '6px',
+          fontSize: '13px',
+          maxWidth: '400px'
+        }}>
+          {statusMessage.text}
+        </div>
+      )}
+
+      {/* Main React Flow Canvas */}
       <div style={{ flex: 1, height: '100%' }}>
         <ReactFlow
           nodes={nodes}
@@ -149,7 +331,7 @@ function FlowCanvasContent() {
           onDrop={onDrop}
           onDragOver={onDragOver}
           onNodeClick={onNodeClick}
-          onPaneClick={onpaneClick}
+          onPaneClick={onPaneClick}
           fitView
         >
           <Controls />
@@ -244,6 +426,65 @@ function FlowCanvasContent() {
               </label>
             </>
           )}
+        </div>
+      )}
+
+      {/* Exported Contract JSON Modal */}
+      {exportedJson && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 50
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            border: '1px solid #4f46e5',
+            borderRadius: '8px',
+            padding: '20px',
+            width: '500px',
+            maxWidth: '90%',
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', color: '#10b981' }}>✅ Serialized Contract JSON</h3>
+              <button 
+                onClick={() => setExportedJson(null)}
+                style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', fontSize: '16px' }}
+              >
+                ✕
+              </button>
+            </div>
+            <pre style={{
+              background: '#111',
+              padding: '12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              overflowX: 'auto',
+              maxHeight: '350px',
+              border: '1px solid #333',
+              margin: 0
+            }}>
+              {exportedJson}
+            </pre>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(exportedJson);
+                  showStatus('Copied JSON to clipboard!');
+                }}
+                style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+              >
+                📋 Copy JSON
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
