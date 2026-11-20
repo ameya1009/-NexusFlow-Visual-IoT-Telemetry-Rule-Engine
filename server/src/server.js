@@ -5,6 +5,7 @@ const cors = require("cors");
 const http = require("http");
 const mongoose = require("mongoose");
 const connectDB = require("./config/database");
+const { initSocket, closeSocket } = require("./ingestion/services/telemetrySocket");
 
 const app = express();
 const server = http.createServer(app);
@@ -52,6 +53,7 @@ app.get("/api/health", (req, res) => {
     services: {
       server: "running",
       database: dbStatusMap[dbState] || "unknown",
+      websocket: "active",
     },
   });
 });
@@ -87,15 +89,23 @@ app.use((err, req, res, next) => {
  */
 const start = async () => {
   await connectDB();
+  initSocket(server);
 
   server.listen(PORT, () => {
     console.log(`[NexusFlow Server] Running on port ${PORT}`);
     console.log(`[NexusFlow Server] Health check available at http://localhost:${PORT}/api/health`);
+    console.log(`[NexusFlow Server] WebSocket server active for live telemetry & alerts`);
   });
 };
 
 const gracefulShutdown = async (signal) => {
   console.log(`\n[NexusFlow Server] Received ${signal}. Closing HTTP and DB connections...`);
+  try {
+    await closeSocket();
+  } catch (socketErr) {
+    console.warn("[NexusFlow Server] Error closing WebSocket server:", socketErr.message);
+  }
+
   server.close(async () => {
     try {
       await mongoose.connection.close(false);
@@ -115,4 +125,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = { app, server, gracefulShutdown };
+module.exports = { app, server, initSocket, closeSocket, gracefulShutdown };

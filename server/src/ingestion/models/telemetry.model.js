@@ -49,8 +49,11 @@ const telemetrySchema = new mongoose.Schema(
   }
 );
 
-// Compound index on sensorId and timestamp for high-performance time-range reads
+// Compound indexes for high-performance time-range and sensor queries
 telemetrySchema.index({ "metadata.sensorId": 1, timestamp: -1 });
+telemetrySchema.index({ "metadata.site": 1, timestamp: -1 });
+telemetrySchema.index({ timestamp: -1 });
+telemetrySchema.index({ "metadata.sensorId": 1, "metadata.site": 1, timestamp: -1 });
 
 const Telemetry = mongoose.model("Telemetry", telemetrySchema);
 
