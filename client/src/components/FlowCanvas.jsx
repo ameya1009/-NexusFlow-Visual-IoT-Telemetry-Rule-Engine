@@ -139,25 +139,71 @@ function FlowCanvasContent() {
     );
   };
 
-  // Client-Side Validation (No unconnected actions, no cycles/loops)
+  // Client-Side Validation (Fields, connectivity, and cycles/loops)
   const validateGraph = () => {
     if (nodes.length === 0) {
       return { valid: false, error: 'Canvas is empty. Add at least one node.' };
     }
 
-    // 1. Check for unconnected Action nodes
-    const actionNodes = nodes.filter((n) => n.data.type === 'action.sms');
-    for (const action of actionNodes) {
-      const hasIncomingEdge = edges.some((e) => e.target === action.id);
-      if (!hasIncomingEdge) {
-        return { 
-          valid: false, 
-          error: `Validation Failed: Action node (${action.id}) must have an incoming connection.` 
-        };
+    // 1. Check required configuration fields per node type
+    for (const node of nodes) {
+      const { type } = node.data || {};
+
+      if (type === 'source.sensor') {
+        if (!node.data.sensorId || !String(node.data.sensorId).trim()) {
+          return { valid: false, error: `Validation Failed: Source node (${node.id}) requires a Sensor ID.` };
+        }
+        if (!node.data.metric || !String(node.data.metric).trim()) {
+          return { valid: false, error: `Validation Failed: Source node (${node.id}) requires a Metric.` };
+        }
+      }
+
+      if (type === 'filter.movingAverage') {
+        const win = Number(node.data.windowSize);
+        if (!win || win <= 0) {
+          return { valid: false, error: `Validation Failed: Filter node (${node.id}) requires a Window Size greater than 0.` };
+        }
+      }
+
+      if (type === 'action.sms') {
+        if (!node.data.phone || !String(node.data.phone).trim()) {
+          return { valid: false, error: `Validation Failed: SMS Action node (${node.id}) requires a Phone Number.` };
+        }
+        if (node.data.threshold === undefined || node.data.threshold === '' || Number.isNaN(Number(node.data.threshold))) {
+          return { valid: false, error: `Validation Failed: SMS Action node (${node.id}) requires a valid Threshold.` };
+        }
+      }
+
+      if (type === 'action.webhook') {
+        if (!node.data.webhookUrl || !String(node.data.webhookUrl).trim()) {
+          return { valid: false, error: `Validation Failed: Webhook Action node (${node.id}) requires a Webhook URL.` };
+        }
       }
     }
 
-    // 2. Check for cycles / loops using DFS
+    // 2. Check incoming/outgoing connectivity
+    for (const node of nodes) {
+      const hasIncoming = edges.some((e) => e.target === node.id);
+      const hasOutgoing = edges.some((e) => e.source === node.id);
+
+      if (node.data.type === 'action.sms' || node.data.type === 'action.webhook') {
+        if (!hasIncoming) {
+          return {
+            valid: false,
+            error: `Validation Failed: Action node (${node.id}) must have an incoming connection.`
+          };
+        }
+      } else if (node.data.type !== 'source.sensor') {
+        if (!hasIncoming || !hasOutgoing) {
+          return {
+            valid: false,
+            error: `Validation Failed: Processing node (${node.id}) should have both incoming and outgoing connections.`
+          };
+        }
+      }
+    }
+
+    // 3. Check for cycles / loops using DFS
     const adjList = {};
     nodes.forEach((n) => (adjList[n.id] = []));
     edges.forEach((e) => {
