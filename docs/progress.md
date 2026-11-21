@@ -50,3 +50,33 @@ Week 1 focused on freezing shared data contracts, establishing monorepo architec
 1. **Member 1:** Set up WebSocket server (`ws`/Socket.IO), publish `telemetry:update` events, build internal event bus (EventEmitter), and load test up to 5,000 writes/sec.
 2. **Member 2:** Build the RxJS compiler, map nodes to reactive operator factories (Moving Average, Threshold, Math), and run against fake stream.
 3. **Member 3:** Create custom React Flow node components (Data Source, Filter, Action Trigger) and node settings panels.
+
+
+---
+
+## Week 2 Progress: Days 1 & 2 (Milestone v0.2-in-progress)
+
+### 1. Ingestion & Event Streaming Deliverables (Member 1 - Team Lead)
+- **Time-Range Queries & Indexing (Day 1):**
+  - Designed compound MongoDB indexes on `{ "metadata.sensorId": 1, timestamp: -1 }`, `{ "metadata.site": 1, timestamp: -1 }`, and `{ timestamp: -1 }`.
+  - Implemented high-performance endpoint `GET /api/telemetry/query` supporting `sensorId`, `site`, `startTime`, `endTime`, `metric`, `minVal`, `maxVal`, pagination (`limit`, `page`), and ordering (`asc`/`desc`).
+- **Reactive In-Process Event Bus (Day 1):**
+  - Created `TelemetryEventBus` (`server/src/ingestion/services/telemetryBus.js`) based on Node.js `EventEmitter`.
+  - Dispatches `telemetry:ingested` and `telemetry:update` on single or batch inserts, enabling zero-latency subscription for Member 2's Stream Compiler without inter-process overhead.
+- **WebSocket Live Broadcasting (Day 2):**
+  - Integrated Socket.IO server (`server/src/ingestion/services/telemetrySocket.js`) into core HTTP server.
+  - Subscribed to `telemetryBus` to emit live events conforming to Contract 4.3:
+    - `telemetry:update`: Broadcasts live readings to connected dashboards and sensor-specific rooms.
+    - `alert:fired`: Broadcasts rule alert notifications.
+    - `node:active`: Broadcasts active execution signal for canvas wire glow animations.
+  - Implemented client room subscriptions (`subscribe:sensor`, `unsubscribe:sensor`).
+- **Integration #1 Verification:**
+  - Demonstrated end-to-end integration between `telemetryBus` and Member 2's compiled RxJS stream pipeline (`streamCompiler.js`), verifying automatic rule trigger and alert firing on live telemetry streams.
+
+### 2. Teammate Progress Tracking
+- **Member 2 (Compiler & Rule Engine):** Expanded stream compiler edge case tests, rule condition evaluation (`temperature`, `voltage`, `current`), and validation schemas.
+- **Member 3 (Frontend & Visuals):** Added node settings panel, field-level connectivity verification, and graph JSON serialization in React Flow canvas.
+
+### 3. Automated Test Suite Metrics
+- **Test Suites:** 8 suites passing (`day7_telemetryQuery.test.js`, `day8_websocket.test.js`, `ingestionAudit.test.js`, `mockSensor.test.js`, `server.test.js`, `telemetry.test.js`, `verifyDemo.test.js`, `week1Milestone.test.js`).
+- **Total Tests:** 41 tests passing (100% pass rate).

@@ -4,8 +4,9 @@ const http = require("http");
 const { app } = require("../src/server");
 const Telemetry = require("../src/ingestion/models/telemetry.model");
 const telemetryBus = require("../src/ingestion/services/telemetryBus");
+const { compileGraph } = require("../src/compiler/services/streamCompiler");
 
-describe("Week 2 Day 7 — Telemetry Time-Range Query & In-Process Event Bus Tests", () => {
+describe("Week 2 Day 1 (Day 7) — Telemetry Time-Range Query & In-Process Event Bus Tests", () => {
   let serverInstance;
   let baseUrl;
 
@@ -245,6 +246,62 @@ describe("Week 2 Day 7 — Telemetry Time-Range Query & In-Process Event Bus Tes
       assert.strictEqual(busReceived.temperature, 91.2);
 
       Telemetry.insertMany = originalInsertMany;
+    });
+  });
+
+  describe("3. Compiler & Ingestion EventBus Integration (Week 2 Integration #1)", () => {
+    test("Member 2 stream compiler pipeline consumes live readings dispatched by Member 1 telemetryBus", async () => {
+      const graph = {
+        graphId: "g_integration_1",
+        nodes: [
+          { id: "s1", type: "sensor", data: { deviceId: "turbine-live" } },
+          { id: "r1", type: "rule", data: { field: "temperature", operator: ">", value: 80 } },
+          { id: "a1", type: "alert", data: { message: "Critical turbine temperature threshold reached" } },
+        ],
+        edges: [
+          { source: "s1", target: "r1" },
+          { source: "r1", target: "a1" },
+        ],
+      };
+
+      const pipeline = compileGraph(graph);
+      const outputs = [];
+
+      pipeline.output$.subscribe((out) => {
+        outputs.push(out);
+      });
+
+      // Bridge telemetryBus -> pipeline input Subject
+      const unsub = telemetryBus.onTelemetryUpdate((reading) => {
+        if (reading.deviceId === "turbine-live") {
+          pipeline.telemetryInput$.next(reading);
+        }
+      });
+
+      // 1. Below threshold reading (75 <= 80) -> No alert
+      telemetryBus.publish({
+        timestamp: new Date().toISOString(),
+        metadata: { sensorId: "turbine-live", site: "plant-A" },
+        temperature: 75.0,
+      });
+
+      assert.strictEqual(outputs.length, 1);
+      assert.strictEqual(outputs[0].deviceId, "turbine-live");
+      assert.strictEqual(outputs[0].alerts.length, 0);
+
+      // 2. Above threshold reading (86.5 > 80) -> Alert triggered
+      telemetryBus.publish({
+        timestamp: new Date().toISOString(),
+        metadata: { sensorId: "turbine-live", site: "plant-A" },
+        temperature: 86.5,
+      });
+
+      assert.strictEqual(outputs.length, 2);
+      assert.strictEqual(outputs[1].alerts.length, 1);
+      assert.strictEqual(outputs[1].alerts[0].message, "Critical turbine temperature threshold reached");
+
+      unsub();
+      pipeline.close();
     });
   });
 });

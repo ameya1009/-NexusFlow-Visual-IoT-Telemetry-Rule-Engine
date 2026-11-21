@@ -6,7 +6,7 @@ const { app } = require("../src/server");
 const { initSocket, closeSocket } = require("../src/ingestion/services/telemetrySocket");
 const telemetryBus = require("../src/ingestion/services/telemetryBus");
 
-describe("Week 2 Day 8 — WebSocket Server & Real-Time Broadcast Tests", () => {
+describe("Week 2 Day 2 (Day 8) — WebSocket Server & Real-Time Broadcast Tests", () => {
   let serverInstance;
   let serverPort;
   let ioServer;
