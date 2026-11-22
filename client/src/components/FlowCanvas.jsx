@@ -23,7 +23,14 @@ const initialNodes = [
 ];
 
 let id = 2;
-const getId = () => `node_${id++}`;
+const getId = (existingNodes = []) => {
+  const maxNum = existingNodes.reduce((acc, n) => {
+    const match = String(n.id).match(/node_(\d+)/);
+    return match ? Math.max(acc, Number(match[1])) : acc;
+  }, id - 1);
+  id = maxNum + 1;
+  return `node_${id++}`;
+};
 
 function FlowCanvasContent() {
   const reactFlowWrapper = useRef(null);
@@ -284,7 +291,7 @@ function FlowCanvasContent() {
     showStatus('Graph saved successfully!');
   };
 
-  const handleLoadGraph = () => {
+const handleLoadGraph = () => {
     const saved = localStorage.getItem('nexusflow_saved_graph');
     if (!saved) {
       showStatus('No saved graph found in storage.', true);
@@ -293,6 +300,11 @@ function FlowCanvasContent() {
 
     try {
       const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+        showStatus('Saved graph data format is invalid.', true);
+        return;
+      }
+
       const restoredNodes = parsed.nodes.map((n) => {
         const fullData = { type: n.type, ...n.data };
         fullData.label = generateLabel(fullData);
@@ -305,9 +317,11 @@ function FlowCanvasContent() {
         };
       });
 
+      getId(restoredNodes);
       setNodes(restoredNodes);
-      setEdges(parsed.edges || []);
+      setEdges(parsed.edges);
       setSelectedNode(null);
+      setExportedJson(null);
       showStatus('Saved graph loaded onto canvas!');
     } catch (e) {
       showStatus('Failed to deserialize saved graph.', true);
