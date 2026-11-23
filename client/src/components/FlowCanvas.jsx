@@ -56,10 +56,12 @@ function FlowCanvasContent() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const getNodeStyle = (nodeType) => {
+ const getNodeStyle = (nodeType) => {
     let borderColor = '#4f46e5';
     if (nodeType === 'filter.movingAverage') borderColor = '#06b6d4';
-    if (nodeType === 'action.sms') borderColor = '#10b981';
+    if (nodeType === 'math.operation') borderColor = '#a855f7';
+    if (nodeType === 'logic.condition') borderColor = '#f59e0b';
+    if (nodeType === 'action.sms' || nodeType === 'action.webhook') borderColor = '#10b981';
 
     return {
       background: '#2d2d2d',
@@ -73,13 +75,19 @@ function FlowCanvasContent() {
     };
   };
 
-  const generateLabel = (data) => {
+const generateLabel = (data) => {
     if (data.type === 'source.sensor') {
       return `🌐 Source: ${data.type}\n(ID: ${data.sensorId || ''})`;
     } else if (data.type === 'filter.movingAverage') {
       return `🔍 Filter: ${data.type}\n(Window: ${data.windowSize || ''})`;
+    } else if (data.type === 'math.operation') {
+      return `➗ Math: ${data.type}\n(Factor: ${data.factor ?? ''})`;
+    } else if (data.type === 'logic.condition') {
+      return `🔀 Condition: ${data.type}\n(${data.operator || '>'} ${data.value ?? ''})`;
     } else if (data.type === 'action.sms') {
-      return `⚡ Action: ${data.type}\n(Threshold: ${data.threshold || ''})`;
+      return `⚡ Action: ${data.type}\n(Threshold: ${data.threshold ?? ''})`;
+    } else if (data.type === 'action.webhook') {
+      return `🪝 Action: ${data.type}\n(URL set: ${data.webhookUrl ? 'Yes' : 'No'})`;
     }
     return 'Node';
   };
