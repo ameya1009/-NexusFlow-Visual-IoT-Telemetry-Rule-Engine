@@ -1,0 +1,49 @@
+{
+  "nodes": [
+    {
+      "id": "sensor-1",
+      "type": "sensor",
+      "data": {
+        "deviceId": "MOTOR-001"
+      }
+    },
+    {
+      "id": "average-1",
+      "type": "movingAverage",
+      "data": {
+        "windowSize": 3,
+        "field": "current"
+      }
+    },
+    {
+      "id": "rule-1",
+      "type": "rule",
+      "data": {
+        "field": "current",
+        "operator": ">",
+        "value": 15
+      }
+    },
+    {
+      "id": "alert-1",
+      "type": "alert",
+      "data": {
+        "message": "High motor current detected!"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "sensor-1",
+      "target": "average-1"
+    },
+    {
+      "source": "average-1",
+      "target": "rule-1"
+    },
+    {
+      "source": "rule-1",
+      "target": "alert-1"
+    }
+  ]
+}
