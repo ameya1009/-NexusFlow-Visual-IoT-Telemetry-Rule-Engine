@@ -9,7 +9,9 @@
     "test": "node --test test/**/*.test.js",
     "mock-sensor": "node src/ingestion/scripts/mockSensor.js",
     "verify-demo": "node src/ingestion/scripts/verifyIngestionDemo.js",
-    "audit": "node src/ingestion/scripts/ingestionAudit.js"
+    "audit": "node src/ingestion/scripts/ingestionAudit.js",
+    "load-test": "node src/ingestion/scripts/loadTest.js",
+    "storage-audit": "node src/ingestion/scripts/storageAudit.js"
   },
   "keywords": [
     "iot",

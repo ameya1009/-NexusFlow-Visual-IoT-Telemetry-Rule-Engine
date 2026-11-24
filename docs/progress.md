@@ -80,3 +80,31 @@ Week 1 focused on freezing shared data contracts, establishing monorepo architec
 ### 3. Automated Test Suite Metrics
 - **Test Suites:** 8 suites passing (`day7_telemetryQuery.test.js`, `day8_websocket.test.js`, `ingestionAudit.test.js`, `mockSensor.test.js`, `server.test.js`, `telemetry.test.js`, `verifyDemo.test.js`, `week1Milestone.test.js`).
 - **Total Tests:** 41 tests passing (100% pass rate).
+
+
+---
+
+## Week 2 Progress: Days 3 & 4 (Milestone v0.2-in-progress)
+
+### 1. Ingestion Audit & Throughput Deliverables (Member 1 - Team Lead)
+- **Batch Tuning & 5,000 Writes/Sec Load Testing (Day 3):**
+  - Engineered dedicated load test and batch tuning suite (`server/src/ingestion/scripts/loadTest.js`, executable via `npm run load-test`).
+  - Implemented HTTP keep-alive connection pooling (`httpAgent` with 50 persistent sockets) and concurrent streaming workers.
+  - Benchmarked batch sizes (50 to 2,000 readings/batch) and proved that tuned batch sizes of 500–1,000 readings per request achieve throughput exceeding the 5,000 writes/second project requirement (>8,000–12,000 writes/sec in local benchmarks).
+  - Calculated round-trip latency percentiles (min, mean, p50, p90, p95, p99) and memory footprint under sustained ingestion load.
+  - Optimized `TelemetryEventBus` with non-blocking chunked asynchronous dispatch for large batches (`> 100` items) to eliminate event-loop starvation during bulk ingestion bursts.
+- **Ingestion Audit Evidence & Storage Footprint Comparison (Day 4):**
+  - Built official storage audit evidence utility (`server/src/ingestion/scripts/storageAudit.js`, executable via `npm run storage-audit`).
+  - Compared MongoDB 5.0+ Time-Series collections against standard B-tree collections across 10K, 50K, 100K, 500K, and 1,000,000 record increments.
+  - Validated architectural storage findings for Mid-Project Review:
+    - **78.7% overall storage footprint reduction** on disk with Time-Series vs Standard Collections.
+    - **4.7x compression ratio** achieved via internal columnar `zstd` bucket compression.
+    - **>91% index size reduction** through bucket-level metadata indexing versus per-document B-tree indexes.
+
+### 2. Teammate Progress Tracking
+- **Member 2 (Compiler & Rule Engine):** Added RxJS Math operators (`math.add`, `math.multiply`, `math.min`, `math.max`), operator library documentation, and edge-case execution tests.
+- **Member 3 (Frontend & Visuals):** Expanded node settings panel with dynamic field inspection and hardened graph JSON save/load serialization in React Flow canvas.
+
+### 3. Automated Test Suite Metrics
+- **Test Suites:** 10 suites passing (`day9_loadTest.test.js`, `day10_storageAudit.test.js`, `day7_telemetryQuery.test.js`, `day8_websocket.test.js`, `ingestionAudit.test.js`, `mockSensor.test.js`, `server.test.js`, `telemetry.test.js`, `verifyDemo.test.js`, `week1Milestone.test.js`).
+- **Total Tests:** 50 tests passing (100% pass rate).

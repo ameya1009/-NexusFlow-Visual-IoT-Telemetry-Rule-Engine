@@ -22,9 +22,9 @@ app.use(
   })
 );
 
-// Payload size guard for telemetry data ingestion
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+// Payload size guard for telemetry data ingestion (supports high-throughput batching)
+app.use(express.json({ limit: process.env.BODY_LIMIT || "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: process.env.BODY_LIMIT || "10mb" }));
 
 // Root Information Endpoint
 app.get("/", (req, res) => {
