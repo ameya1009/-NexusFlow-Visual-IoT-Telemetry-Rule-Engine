@@ -253,25 +253,36 @@ const generateLabel = (data) => {
 
   // Serialize React Flow state into clean Backend JSON Contract
   const serializeToContractJson = () => {
-    const cleanNodes = nodes.map((node) => {
-      const { label, type, ...configParams } = node.data;
-      return {
-        id: node.id,
-        type: type,
-        data: configParams,
-        position: node.position
-      };
-    });
-
-    const cleanEdges = edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target
-    }));
-
     return {
-      nodes: cleanNodes,
-      edges: cleanEdges
+      nodes: nodes.map((node) => {
+        const { label, type, ...rawData } = node.data || {};
+        const cleanedData = { ...rawData };
+
+        if (cleanedData.windowSize !== undefined && cleanedData.windowSize !== '') {
+          cleanedData.windowSize = Number(cleanedData.windowSize);
+        }
+        if (cleanedData.threshold !== undefined && cleanedData.threshold !== '') {
+          cleanedData.threshold = Number(cleanedData.threshold);
+        }
+        if (cleanedData.factor !== undefined && cleanedData.factor !== '') {
+          cleanedData.factor = Number(cleanedData.factor);
+        }
+        if (cleanedData.value !== undefined && cleanedData.value !== '') {
+          cleanedData.value = Number(cleanedData.value);
+        }
+
+        return {
+          id: node.id,
+          type: type || node.type,
+          data: cleanedData,
+          position: node.position
+        };
+      }),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target
+      }))
     };
   };
 
