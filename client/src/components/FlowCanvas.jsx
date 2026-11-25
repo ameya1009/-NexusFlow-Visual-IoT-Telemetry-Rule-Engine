@@ -298,6 +298,23 @@ const generateLabel = (data) => {
     showStatus('Graph validated and serialized to contract JSON!');
   };
 
+  const handleDownloadContractJson = () => {
+    const validation = validateGraph();
+    if (!validation.valid) {
+      showStatus(validation.error, true);
+      return;
+    }
+    const payload = JSON.stringify(serializeToContractJson(), null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'nexusflow-contract.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    showStatus('Contract JSON file downloaded!');
+  };
+
   const handleSaveGraph = () => {
     const validation = validateGraph();
     if (!validation.valid) {
