@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/server.js",
+"test": "node test-stream-compiler.js && node src/compiler/tests/test-math-execution.js && node src/compiler/tests/test-math.js && node src/compiler/tests/test-moving-average.js && node src/compiler/tests/test-threshold.js && node src/compiler/tests/test-delay.js && node src/compiler/tests/test-action.js",    "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
   "keywords": [],
