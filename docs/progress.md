@@ -108,3 +108,28 @@ Week 1 focused on freezing shared data contracts, establishing monorepo architec
 ### 3. Automated Test Suite Metrics
 - **Test Suites:** 10 suites passing (`day9_loadTest.test.js`, `day10_storageAudit.test.js`, `day7_telemetryQuery.test.js`, `day8_websocket.test.js`, `ingestionAudit.test.js`, `mockSensor.test.js`, `server.test.js`, `telemetry.test.js`, `verifyDemo.test.js`, `week1Milestone.test.js`).
 - **Total Tests:** 50 tests passing (100% pass rate).
+
+
+---
+
+## Week 2 Progress: Days 5 & 6 (Milestone v0.2-week2 Released)
+
+### 1. Mid-Project Review & Integration #1 Deliverables (Member 1 - Team Lead)
+- **Integration #1 Demonstration Script (Day 5):**
+  - Created automated end-to-end integration demo script (`server/src/ingestion/scripts/midProjectDemo.js`, executable via `npm run mid-demo`).
+  - Proves the complete multi-member data loop: Contract 4.1 Graph JSON (Member 3) ➔ Ajv validation & RxJS compilation (Member 2) ➔ Telemetry ingestion & EventBus pub/sub (Member 1) ➔ Real-time WebSocket broadcasting (Member 1) ➔ Alert detection.
+- **Mid-Project Review Presentation Pack (Day 5):**
+  - Authored comprehensive slide deck and speaker script in `docs/mid_project_review.md`.
+  - Aggregated audit evidence: 5,000 writes/sec batch tuning matrix and 78.7% Time-Series storage footprint savings.
+- **Milestone Verification & Teammate PR Integration (Day 6):**
+  - Verified integration with Member 2's merged compiler operators (`math`, `threshold`, `movingAverage`, `action`, `delay`).
+  - Created automated milestone integration test suite (`server/test/week2Milestone.test.js`).
+  - Released and tagged milestone `v0.2-week2`.
+
+### 2. Teammate Progress Tracking
+- **Member 2 (Compiler & Rule Engine):** Merged Week 2 PR with full operator library, sample graph execution scripts (`high-voltage-graph.json`, `high-current-graph.json`), and operator automated test harness.
+- **Member 3 (Frontend & Visuals):** Added contract JSON download helper in canvas, aligned serialization schema with backend validator, and cleaned up frontend workspaces.
+
+### 3. Automated Test Suite Metrics
+- **Test Suites:** 11 suites passing (`week2Milestone.test.js`, `day9_loadTest.test.js`, `day10_storageAudit.test.js`, `day7_telemetryQuery.test.js`, `day8_websocket.test.js`, `ingestionAudit.test.js`, `mockSensor.test.js`, `server.test.js`, `telemetry.test.js`, `verifyDemo.test.js`, `week1Milestone.test.js`).
+- **Total Tests:** 52 tests passing (100% pass rate).

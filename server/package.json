@@ -6,12 +6,13 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test test/**/*.test.js",
+    "test": "node --test --test-concurrency=1 test/**/*.test.js",
     "mock-sensor": "node src/ingestion/scripts/mockSensor.js",
     "verify-demo": "node src/ingestion/scripts/verifyIngestionDemo.js",
     "audit": "node src/ingestion/scripts/ingestionAudit.js",
     "load-test": "node src/ingestion/scripts/loadTest.js",
-    "storage-audit": "node src/ingestion/scripts/storageAudit.js"
+    "storage-audit": "node src/ingestion/scripts/storageAudit.js",
+    "mid-demo": "node src/ingestion/scripts/midProjectDemo.js"
   },
   "keywords": [
     "iot",

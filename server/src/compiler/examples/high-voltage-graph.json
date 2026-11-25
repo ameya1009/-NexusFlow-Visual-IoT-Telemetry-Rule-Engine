@@ -1,0 +1,37 @@
+{
+  "nodes": [
+    {
+      "id": "sensor-1",
+      "type": "sensor",
+      "data": {
+        "deviceId": "SUBSTATION-001"
+      }
+    },
+    {
+      "id": "rule-1",
+      "type": "rule",
+      "data": {
+        "field": "voltage",
+        "operator": ">",
+        "value": 240
+      }
+    },
+    {
+      "id": "alert-1",
+      "type": "alert",
+      "data": {
+        "message": "High voltage detected!"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "sensor-1",
+      "target": "rule-1"
+    },
+    {
+      "source": "rule-1",
+      "target": "alert-1"
+    }
+  ]
+}
