@@ -1,0 +1,43 @@
+
+{
+  "nodes": [
+    {
+      "type": "math.operation",
+      "category": "math",
+      "label": "Math Operation",
+      "description": "Performs a mathematical operation on two inputs.",
+      "inputs": [
+        {
+          "id": "a",
+          "required": true
+        },
+        {
+          "id": "b",
+          "required": false
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out"
+        }
+      ],
+      "data": {
+        "operation": {
+          "type": "enum",
+          "required": true,
+          "options": [
+            "add",
+            "multiply",
+            "min",
+            "max"
+          ]
+        },
+        "operandB": {
+          "type": "number",
+          "required": false,
+          "usedWhen": "input b is not connected"
+        }
+      }
+    }
+  ]
+}
