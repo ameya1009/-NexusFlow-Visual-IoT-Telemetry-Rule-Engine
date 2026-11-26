@@ -247,28 +247,47 @@ const generateLabel = (data) => {
         return { valid: false, error: 'Validation Failed: Graph contains an infinite loop (cycle detected).' };
       }
     }
-
+    // Check for disconnected / floating nodes
+  const disconnectedNode = nodes.find(
+    (node) => !edges.some((edge) => edge.source === node.id || edge.target === node.id)
+  );
+  if (disconnectedNode) {
+    return {
+      valid: false,
+      error: 'Please connect your node before exporting!',
+    };
+  }
     return { valid: true };
   };
 
   // Serialize React Flow state into clean Backend JSON Contract
+
+  const toSafeNumber = (val, fallback = 0) => {
+    if (val === undefined || val === null || String(val).trim() === '') {
+      return fallback;
+    }
+    const parsed = Number(val);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+
   const serializeToContractJson = () => {
     return {
       nodes: nodes.map((node) => {
         const { label, type, ...rawData } = node.data || {};
         const cleanedData = { ...rawData };
 
-        if (cleanedData.windowSize !== undefined && cleanedData.windowSize !== '') {
-          cleanedData.windowSize = Number(cleanedData.windowSize);
+       if (cleanedData.windowSize !== undefined && cleanedData.windowSize !== '') {
+          cleanedData.windowSize = toSafeNumber(cleanedData.windowSize, 5);
         }
         if (cleanedData.threshold !== undefined && cleanedData.threshold !== '') {
-          cleanedData.threshold = Number(cleanedData.threshold);
+          cleanedData.threshold = toSafeNumber(cleanedData.threshold, 0);
         }
         if (cleanedData.factor !== undefined && cleanedData.factor !== '') {
-          cleanedData.factor = Number(cleanedData.factor);
+          cleanedData.factor = toSafeNumber(cleanedData.factor, 1);
         }
         if (cleanedData.value !== undefined && cleanedData.value !== '') {
-          cleanedData.value = Number(cleanedData.value);
+          cleanedData.value = toSafeNumber(cleanedData.value, 0);
         }
 
         return {
