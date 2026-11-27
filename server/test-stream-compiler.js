@@ -338,4 +338,61 @@ assert.strictEqual(results[0].alerts.length, 0, "First reading should not trigge
 assert.strictEqual(results[1].alerts.length, 0, "Second reading should not trigger alert");
 assert.strictEqual(results[2].alerts.length, 1, "Third reading should trigger alert");
 
+// Test: Stream continues after an invalid telemetry reading
+const recoveryPipeline = compileGraph(graph);
+const recoveryResults = [];
+let pipelineError = null;
+
+recoveryPipeline.output$.subscribe({
+  next: result => recoveryResults.push(result),
+  error: error => {
+    pipelineError = error;
+  }
+});
+
+// First valid reading
+recoveryPipeline.telemetryInput$.next({
+  deviceId: "TURBINE-001",
+  temperature: 60,
+  voltage: 230,
+  current: 12
+});
+
+// Invalid reading
+recoveryPipeline.telemetryInput$.next({
+  deviceId: "TURBINE-001",
+  temperature: "invalid",
+  voltage: 230,
+  current: 12
+});
+
+// Second valid reading
+recoveryPipeline.telemetryInput$.next({
+  deviceId: "TURBINE-001",
+  temperature: 90,
+  voltage: 230,
+  current: 12
+});
+
+recoveryPipeline.close();
+
+assert.strictEqual(
+  recoveryResults.length,
+  2,
+  "Stream should process both valid readings and skip the invalid reading"
+);
+
+assert.strictEqual(
+  recoveryResults[1].results["average-1"].temperature,
+  75,
+  "Invalid reading should not affect moving average state"
+);
+
+assert.strictEqual(
+  pipelineError,
+  null,
+  "Invalid reading should not terminate the stream"
+);
+
+console.log("✅ Stream recovery after invalid telemetry test passed");
 console.log("\n✅ All Stream Compiler tests passed!");
