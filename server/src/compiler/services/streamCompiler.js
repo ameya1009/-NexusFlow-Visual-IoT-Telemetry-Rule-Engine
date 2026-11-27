@@ -1,10 +1,8 @@
-
 const {
   Subject,
-  scan,
-  map,
-  filter,
-  tap
+  EMPTY,
+  of,
+  mergeMap
 } = require("rxjs");
 
 // Supported graph node types
@@ -187,9 +185,14 @@ function compileGraph(graph) {
 
   const telemetryInput$ = new Subject();
 
-  const output$ = telemetryInput$.pipe(
-    map(reading => {
-      if (!reading || typeof reading !== "object") {
+const output$ = telemetryInput$.pipe(
+  mergeMap(reading => {
+    try {
+      if (
+        !reading ||
+        typeof reading !== "object" ||
+        Array.isArray(reading)
+      ) {
         throw new Error("Telemetry reading must be an object");
       }
 
@@ -197,16 +200,18 @@ function compileGraph(graph) {
         throw new Error("Telemetry deviceId does not match sensor");
       }
 
-      return { ...reading };
-    }),
-
-    map(reading => {
+      const validatedReading = { ...reading };
       const results = {};
       const alerts = [];
 
+      // Work on copied states so failed readings don't change averages.
+      const nextAverageStates = new Map(
+        [...averageStates].map(([id, values]) => [id, [...values]])
+      );
+
       for (const node of orderedNodes) {
         if (node.type === "sensor") {
-          results[node.id] = { ...reading };
+          results[node.id] = { ...validatedReading };
           continue;
         }
 
@@ -215,7 +220,6 @@ function compileGraph(graph) {
 
         if (node.type === "movingAverage") {
           const field = node.data?.field || "temperature";
-
           const value = parentValue[field];
 
           if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -224,7 +228,7 @@ function compileGraph(graph) {
             );
           }
 
-          const values = averageStates.get(node.id);
+          const values = nextAverageStates.get(node.id);
 
           values.push(value);
 
@@ -250,10 +254,7 @@ function compileGraph(graph) {
         }
 
         if (node.type === "rule") {
-          const matched = evaluateRule(
-            parentValue,
-            node.data
-          );
+          const matched = evaluateRule(parentValue, node.data);
 
           results[node.id] = {
             ...parentValue,
@@ -276,7 +277,7 @@ function compileGraph(graph) {
               nodeId: node.id,
               message:
                 node.data?.message || "Telemetry threshold exceeded",
-              deviceId: reading.deviceId,
+              deviceId: validatedReading.deviceId,
               timestamp: new Date().toISOString()
             });
           }
@@ -288,14 +289,26 @@ function compileGraph(graph) {
         }
       }
 
-      return {
-        deviceId: reading.deviceId,
+      // Commit average states only after successful processing.
+      for (const [id, values] of nextAverageStates) {
+        averageStates.set(id, values);
+      }
+
+      return of({
+        deviceId: validatedReading.deviceId,
         processedAt: new Date().toISOString(),
         results,
         alerts
-      };
-    })
-  );
+      });
+    } catch (error) {
+      console.error(
+        `[StreamCompiler] Skipping invalid telemetry reading: ${error.message}`
+      );
+
+      return EMPTY;
+    }
+  })
+);
 
   return {
     telemetryInput$,
